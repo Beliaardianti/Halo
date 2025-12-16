@@ -1,69 +1,57 @@
-import { defineEventHandler, readBody } from 'h3'
-
 export default defineEventHandler(async (event) => {
   try {
+    const { createClient } = await import('@supabase/supabase-js')
+    const config = useRuntimeConfig()
+
+    const supabase = createClient(
+      config.public.supabaseUrl,
+      config.public.supabaseKey
+    )
+
     const body = await readBody(event)
-    const { email, password, accountType } = body
+    const {
+      email,
+      password,
+      accountType,
+      firstName,
+      middleName,
+      lastName
+    } = body
 
-    if (!email || !password) {
-      return {
-        success: false,
-        message: 'Email dan password harus diisi'
-      }
-    }
-
-    const supabaseUrl = process.env.SUPABASE_URL
-    const supabaseKey = process.env.SUPABASE_ANON_KEY
-
-    if (!supabaseUrl || !supabaseKey) {
-      return {
-        success: false,
-        message: 'Supabase config missing'
-      }
-    }
-
-    console.log('📝 Registering:', email)
-
-    // ✅ Call Supabase Auth REST API
-    const response = await fetch(`${supabaseUrl}/auth/v1/signup`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseKey
-      },
-      body: JSON.stringify({
-        email,
-        password
-      })
+    // ✅ Step 1: Sign up user
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password
     })
 
-    const data = await response.json()
+    if (error) {
+      return { success: false, message: error.message }
+    }
 
-    if (!response.ok) {
-      console.error('Auth error:', data.message)
+    // 🔐 User bisa null jika email confirmation ON
+    if (!data.user) {
       return {
-        success: false,
-        message: data.message || 'Registrasi gagal'
+        success: true,
+        message: 'Registrasi berhasil, silakan cek email untuk verifikasi'
       }
     }
 
-    console.log('✅ User created:', data.user.id)
-
-    // ✅ Insert profile via REST API
-    await fetch(`${supabaseUrl}/rest/v1/user_profiles`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`
-      },
-      body: JSON.stringify({
-        id: data.user.id,
-        account_type: accountType || 'user',
+  
+    const { error: profileError } = await supabase
+      .from('user_profiles')
+      .insert({
+        id: data.user.id, // Pakai user_id sebagai id di table
+        first_name: firstName,
+        last_name: lastName,
+        account_type: accountType,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
-    })
+
+    if (profileError) {
+      console.error('Profile save error:', profileError)
+      // Jangan return error, user auth sudah berhasil
+    }
 
     return {
       success: true,
@@ -73,16 +61,16 @@ export default defineEventHandler(async (event) => {
         user: {
           id: data.user.id,
           email: data.user.email,
-          account_type: accountType
+          account_type: accountType,
+          first_name: firstName,
+          last_name: lastName
         }
       }
     }
-
   } catch (err) {
-    console.error('❌ Error:', err)
-    return {
-      success: false,
-      message: err instanceof Error ? err.message : 'Error'
-    }
+    const message =
+      err instanceof Error ? err.message : 'Terjadi kesalahan server'
+
+    return { success: false, message }
   }
 })
