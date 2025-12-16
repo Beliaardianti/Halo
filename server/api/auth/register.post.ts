@@ -2,8 +2,15 @@ import { defineEventHandler, readBody } from 'h3'
 
 export default defineEventHandler(async (event) => {
   try {
-    // ✅ Dynamic import
-    const { createClient } = await import('@supabase/supabase-js')
+    const body = await readBody(event)
+    const { email, password, accountType } = body
+
+    if (!email || !password) {
+      return {
+        success: false,
+        message: 'Email dan password harus diisi'
+      }
+    }
 
     const supabaseUrl = process.env.SUPABASE_URL
     const supabaseKey = process.env.SUPABASE_ANON_KEY
@@ -15,52 +22,48 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey)
-    const body = await readBody(event)
-    const { email, password, accountType } = body
-
-    if (!email || !password) {
-      return {
-        success: false,
-        message: 'Email dan password harus diisi'
-      }
-    }
-
     console.log('📝 Registering:', email)
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password
+    // ✅ Call Supabase Auth REST API
+    const response = await fetch(`${supabaseUrl}/auth/v1/signup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey
+      },
+      body: JSON.stringify({
+        email,
+        password
+      })
     })
 
-    if (error) {
-      console.error('Auth error:', error.message)
-      return { success: false, message: error.message }
-    }
+    const data = await response.json()
 
-    if (!data.user) {
+    if (!response.ok) {
+      console.error('Auth error:', data.message)
       return {
         success: false,
-        message: 'User tidak berhasil dibuat'
+        message: data.message || 'Registrasi gagal'
       }
     }
 
     console.log('✅ User created:', data.user.id)
 
-    // Insert profile
-    const { error: profileError } = await supabase
-      .from('user_profiles')
-      .insert({
+    // ✅ Insert profile via REST API
+    await fetch(`${supabaseUrl}/rest/v1/user_profiles`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`
+      },
+      body: JSON.stringify({
         id: data.user.id,
-        first_name: '',
         account_type: accountType || 'user',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
-
-    if (profileError) {
-      console.error('Profile error:', profileError.message)
-    }
+    })
 
     return {
       success: true,
@@ -76,10 +79,10 @@ export default defineEventHandler(async (event) => {
     }
 
   } catch (err) {
-    console.error('❌ Register error:', err)
+    console.error('❌ Error:', err)
     return {
       success: false,
-      message: err instanceof Error ? err.message : 'Register failed'
+      message: err instanceof Error ? err.message : 'Error'
     }
   }
 })
