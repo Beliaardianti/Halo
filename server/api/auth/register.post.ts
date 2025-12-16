@@ -1,3 +1,5 @@
+export const runtime = 'nodejs'
+
 export default defineEventHandler(async (event) => {
   try {
     const { createClient } = await import('@supabase/supabase-js')
