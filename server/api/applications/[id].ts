@@ -1,4 +1,4 @@
-import { supabase } from '../../utils/supabaseClient'
+import { createServerSupabaseClient } from '../../utils/supabaseClient'
 
 interface Application {
   id: string
@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
       console.log('[Applications DELETE] Removing application:', id, 'for user:', user_id)
 
       // Verify ownership - only user who applied can delete
-      const { data: appData, error: fetchError } = await supabase
+      const { data: appData, error: fetchError } = await createServerSupabaseClient()
         .from('applications')
         .select('user_id')
         .eq('id', id)
@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
       }
 
       // Delete the application
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await createServerSupabaseClient()
         .from('applications')
         .delete()
         .eq('id', id)

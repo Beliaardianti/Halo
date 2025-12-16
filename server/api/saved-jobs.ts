@@ -1,6 +1,5 @@
-// File: server/api/saved-jobs.ts
-
-import { supabase } from '../utils/supabaseClient'
+import { defineEventHandler, getQuery, createError, readBody } from 'h3'
+import { createServerSupabaseClient } from '../utils/supabaseClient'
 
 export default defineEventHandler(async (event) => {
   const method = event.method
@@ -18,7 +17,7 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await createServerSupabaseClient()
         .from('saved_opportunities')
         .select(`
           *,
@@ -56,7 +55,7 @@ export default defineEventHandler(async (event) => {
       }
 
       // Check if already saved
-      const { data: existing } = await supabase
+      const { data: existing } = await createServerSupabaseClient()
         .from('saved_opportunities')
         .select('id')
         .eq('user_id', user_id)
@@ -71,7 +70,7 @@ export default defineEventHandler(async (event) => {
       }
 
       // Insert saved job
-      const { data, error } = await supabase
+      const { data, error } = await ((createServerSupabaseClient() as any)
         .from('saved_opportunities')
         .insert({
           user_id,
@@ -81,7 +80,7 @@ export default defineEventHandler(async (event) => {
           *,
           opportunity:opportunities(*)
         `)
-        .single()
+        .single())
 
       if (error) throw error
 
@@ -111,7 +110,7 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      const { error } = await supabase
+      const { error } = await createServerSupabaseClient()
         .from('saved_opportunities')
         .delete()
         .eq('user_id', user_id)

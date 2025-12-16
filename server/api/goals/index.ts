@@ -1,4 +1,4 @@
-import { supabase } from '../../utils/supabaseClient'
+import { createServerSupabaseClient } from '../utils/supabaseClient'
 
 export default defineEventHandler(async (event) => {
   const method = event.method

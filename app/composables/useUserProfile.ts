@@ -1,7 +1,14 @@
 import { ref } from 'vue'
-import { supabase } from '../../server/utils/supabaseClient'
+import { createClient } from '@supabase/supabase-js'
+import type { Database } from '~/types/database.types'
 
 export const useUserProfile = () => {
+  // ✅ Create client directly (client-side only)
+  const supabase = createClient<Database>(
+    process.env.NUXT_PUBLIC_SUPABASE_URL || '',
+    process.env.NUXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  )
+
   const profile = ref<any>(null)
 
   const fetchUserProfile = async (userId: string) => {

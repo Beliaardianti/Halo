@@ -1,4 +1,5 @@
-import { supabase } from '../../utils/supabaseClient'
+import { defineEventHandler, getQuery, createError, readBody } from 'h3'
+import { createServerSupabaseClient } from '../../utils/supabaseClient'
 
 export default defineEventHandler(async (event) => {
   const method = event.method
@@ -18,7 +19,7 @@ export default defineEventHandler(async (event) => {
 
       console.log('[Applications GET] Fetching applications for user:', user_id)
 
-      const { data, error } = await supabase
+      const { data, error } = await createServerSupabaseClient()
         .from('applications')
         .select('*')
         .eq('user_id', user_id)
@@ -56,7 +57,7 @@ export default defineEventHandler(async (event) => {
       console.log('[Applications POST] Creating application:', { user_id, opportunityId })
 
       // Check if already applied
-      const { data: existing } = await supabase
+      const { data: existing } = await createServerSupabaseClient()
         .from('applications')
         .select('id')
         .eq('user_id', user_id)
@@ -71,7 +72,7 @@ export default defineEventHandler(async (event) => {
       }
 
       // Insert application
-      const { data, error } = await supabase
+      const { data, error } = await ((createServerSupabaseClient() as any)
         .from('applications')
         .insert({
           user_id,
@@ -83,7 +84,7 @@ export default defineEventHandler(async (event) => {
           notes: notes || null
         })
         .select()
-        .single()
+        .single())
 
       if (error) {
         console.error('[Applications POST] Insert error:', error)

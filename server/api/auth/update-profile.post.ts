@@ -1,105 +1,114 @@
-import { readBody, createError, defineEventHandler, getHeader } from 'h3'
-import { createServerSupabaseClient } from '../../../utils/supabaseClient'
-import type { Database } from '~/types/database.types'
+import { readBody, createError, defineEventHandler } from 'h3'
+import { createServerSupabaseClient } from '../../utils/supabaseClient'
 
 export default defineEventHandler(async (event) => {
   try {
-    const authHeader = getHeader(event, 'authorization')
-    
-    console.log('🔐 Auth header:', authHeader ? '✅' : '❌')
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw createError({
-        statusCode: 401,
-        message: 'Token tidak ditemukan'
-      })
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    console.log('🔐 Token:', `${token.substring(0, 20)}...`)
-
-    // Buat client dengan token di header
-    const supabaseUrl = process.env.SUPABASE_URL
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('❌ Supabase env not found')
-      throw createError({
-        statusCode: 500,
-        message: 'Server config error'
-      })
-    }
-
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    })
-
-    // Verify token
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    console.log('🔐 User verified:', user ? `✅ ${user.id}` : `❌ ${authError?.message}`)
-
-    if (!user || authError) {
-      throw createError({
-        statusCode: 401,
-        message: 'Token invalid atau expired'
-      })
-    }
-
     const body = await readBody(event)
-    const { firstName, middleName, lastName, phone } = body
+    
+    console.log('📥 API received:', JSON.stringify(body, null, 2))
 
-    if (!firstName || !lastName || !phone) {
+    const { user_id, account_type, first_name, middle_name, last_name, phone } = body
+
+    // Validasi
+    if (!user_id) {
+      throw createError({
+        statusCode: 400,
+        message: 'User ID is required'
+      })
+    }
+
+    if (!account_type) {
+      throw createError({
+        statusCode: 400,
+        message: 'Account type is required'
+      })
+    }
+
+    if (!first_name || !last_name || !phone) {
       throw createError({
         statusCode: 400,
         message: 'First name, last name, and phone are required'
       })
     }
 
-    // Update profile dengan service role (bypass RLS)
-    const supabaseAdmin = createServerSupabaseClient()
-
-    console.log('📝 Updating profile for:', user.id)
-
-    const { data, error } = await supabaseAdmin
-      .from('user_profiles')
-      .update({
-        first_name: firstName,
-        middle_name: middleName || null,
-        last_name: lastName,
-        phone: phone,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', user.id)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('❌ Update error:', error.message)
+    // Pastikan account_type hanya 'user' atau 'employer'
+    if (!['user', 'employer'].includes(account_type)) {
       throw createError({
-        statusCode: 500,
-        message: error.message
+        statusCode: 400,
+        message: 'Account type must be either "user" or "employer"'
       })
     }
 
-    console.log('✅ Profile updated')
+    console.log('✅ Validation passed')
+    console.log('📝 User ID:', user_id)
+    console.log('📝 Account Type:', account_type)
+
+    // Update profile dengan service role (bypass RLS)
+    const supabase = createServerSupabaseClient()
+
+    // Check if profile exists
+    const { data: existing } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('id', user_id)
+      .maybeSingle()
+
+    console.log('🔍 Profile exists:', existing ? 'YES' : 'NO')
+
+    const updateData = {
+      account_type: account_type,
+      first_name: first_name,
+      middle_name: middle_name || null,
+      last_name: last_name,
+      phone: phone,
+      updated_at: new Date().toISOString()
+    }
+
+    console.log('📤 Data to save:', JSON.stringify(updateData, null, 2))
+
+    let result
+
+    if (existing) {
+      // UPDATE existing profile
+      result = await supabase
+        .from('user_profiles')
+        .update(updateData)
+        .eq('id', user_id)
+        .select()
+        .single()
+    } else {
+      // INSERT new profile
+      result = await supabase
+        .from('user_profiles')
+        .insert({
+          id: user_id,
+          ...updateData
+        } as any) // Type assertion
+        .select()
+        .single()
+    }
+
+    if (result.error) {
+      console.error('❌ Database error:', result.error)
+      throw createError({
+        statusCode: 500,
+        message: result.error.message || 'Failed to save profile'
+      })
+    }
+
+    console.log('✅ Profile saved successfully:', result.data)
 
     return {
       success: true,
-      data: data,
-      message: 'Profile updated successfully'
+      data: result.data,
+      message: 'Profile saved successfully'
     }
 
   } catch (error: any) {
-    console.error('❌ Error:', error.message || error)
+    console.error('❌ API Error:', error)
     throw createError({
       statusCode: error.statusCode || 500,
-      message: error.message || 'Failed to update profile'
+      message: error.message || 'Failed to save profile'
     })
   }
 })

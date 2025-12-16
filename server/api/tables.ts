@@ -1,13 +1,13 @@
-import { supabase } from '../utils/supabaseClient'
-
+import { defineEventHandler, createError } from 'h3'
+import { createServerSupabaseClient } from '../utils/supabaseClient'
 
 export default defineEventHandler(async (event) => {
   try {
     // Cek tables yang ada di database
-    const { data: tables, error } = await supabase
+    const { data: tables, error } = await ((createServerSupabaseClient() as any)
       .from('information_schema.tables')
       .select('table_name')
-      .eq('table_schema', 'public')
+      .eq('table_schema', 'public'))
 
     if (error) {
       return {
@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
 
     return {
       success: true,
-      tables: tables?.map(t => t.table_name) || [],
+      tables: (tables as any[])?.map(t => t.table_name) || [],
       count: tables?.length || 0
     }
   } catch (error: any) {

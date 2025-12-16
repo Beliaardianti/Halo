@@ -1,4 +1,4 @@
-import { supabase } from '../../utils/supabaseClient'
+import { createServerSupabaseClient } from '../utils/supabaseClient'
 
 interface Goal {
   id: string

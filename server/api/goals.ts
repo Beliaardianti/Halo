@@ -1,4 +1,4 @@
-import { supabase } from '../utils/supabaseClient'
+import { createServerSupabaseClient } from '../utils/supabaseClient'
 
 export default defineEventHandler(async (event) => {
   const method = event.method
@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
 
       console.log('[Goals GET] Fetching goals for user:', user_id)
 
-      const { data, error } = await supabase
+      const { data, error } = await createServerSupabaseClient()
         .from('goals')
         .select('*')
         .eq('user_id', user_id)
@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
 
       console.log('[Goals POST] Creating goal:', { user_id, title })
 
-      const { data, error } = await supabase
+      const { data, error } = await createServerSupabaseClient()
         .from('goals')
         .insert([{
           user_id,

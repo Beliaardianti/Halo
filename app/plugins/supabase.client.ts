@@ -1,14 +1,23 @@
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from '../types/database.types'
-import { defineNuxtPlugin } from '#app'
+import type { Database } from '~/types/database.types'
 
 export default defineNuxtPlugin(() => {
+  // ✅ Ambil dari runtimeConfig (bukan process.env)
   const config = useRuntimeConfig()
+  
+  const supabaseUrl = config.public.supabaseUrl as string
+  const supabaseKey = config.public.supabaseKey as string
 
-  const supabase = createClient<Database>(
-    config.public.supabaseUrl,
-    config.public.supabaseKey
-  )
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing Supabase config:')
+    console.error('   supabaseUrl:', supabaseUrl)
+    console.error('   supabaseKey:', supabaseKey)
+    console.error('   Check nuxt.config.ts runtimeConfig')
+    return
+  }
+
+  const supabase = createClient<Database>(supabaseUrl, supabaseKey)
+  console.log('✅ Supabase plugin loaded successfully')
 
   return {
     provide: {

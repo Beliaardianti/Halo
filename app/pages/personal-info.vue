@@ -14,23 +14,16 @@
                 <!-- Progress Steps -->
                 <div class="mb-8">
                     <div class="flex items-center justify-between">
-                        <!-- Step 1 -->
                         <div class="flex items-center flex-1">
-                            <div
-                                class="flex items-center justify-center w-8 h-8 bg-green-500 text-white rounded-full text-sm font-semibold">
+                            <div class="flex items-center justify-center w-8 h-8 bg-green-500 text-white rounded-full text-sm font-semibold">
                                 ✓
                             </div>
                             <div class="hidden sm:block ml-2 text-xs text-gray-600">Akun</div>
                         </div>
-
-                        <!-- Connector Line -->
                         <div class="flex-1 h-1 bg-blue-200 mx-2"></div>
-
-                        <!-- Step 2 -->
                         <div class="flex items-center flex-1 justify-end">
                             <div class="hidden sm:block mr-2 text-xs text-blue-600 font-medium">Info Pribadi</div>
-                            <div
-                                class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full text-sm font-semibold">
+                            <div class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full text-sm font-semibold">
                                 2
                             </div>
                         </div>
@@ -42,12 +35,27 @@
                 </h2>
 
                 <div class="space-y-5">
+                    <!-- Account Type -->
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-2">
+                            Tipe Akun <span class="text-red-500">*</span>
+                        </label>
+                        <select 
+                            v-model="accountType"
+                            class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                        >
+                            <option value="user">Personal</option>
+                            <option value="employer">Business</option>
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">Selected: {{ accountType }}</p>
+                    </div>
+
                     <!-- Nama Depan -->
                     <div>
                         <label class="block text-sm text-gray-600 mb-2">
                             Nama Depan <span class="text-red-500">*</span>
                         </label>
-                        <input v-model="personalInfo.firstName" type="text" placeholder="Masukkan nama depan"
+                        <input v-model="firstName" type="text" placeholder="Masukkan nama depan"
                             class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition" />
                     </div>
 
@@ -56,7 +64,7 @@
                         <label class="block text-sm text-gray-600 mb-2">
                             Nama Tengah <span class="text-gray-400 text-xs">(opsional)</span>
                         </label>
-                        <input v-model="personalInfo.middleName" type="text" placeholder="Masukkan nama tengah"
+                        <input v-model="middleName" type="text" placeholder="Masukkan nama tengah"
                             class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition" />
                     </div>
 
@@ -65,7 +73,7 @@
                         <label class="block text-sm text-gray-600 mb-2">
                             Nama Belakang <span class="text-red-500">*</span>
                         </label>
-                        <input v-model="personalInfo.lastName" type="text" placeholder="Masukkan nama belakang"
+                        <input v-model="lastName" type="text" placeholder="Masukkan nama belakang"
                             class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition" />
                     </div>
 
@@ -74,18 +82,16 @@
                         <label class="block text-sm text-gray-600 mb-2">
                             Nomor Telepon <span class="text-red-500">*</span>
                         </label>
-                        <input v-model="personalInfo.phone" type="tel" placeholder="Contoh: 081234567890"
+                        <input v-model="phone" type="tel" placeholder="Contoh: 081234567890"
                             class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                             :class="{ 'border-red-300': phoneError }" />
                         <p class="mt-1 text-xs text-gray-500">Format: 08xxxxxxxxxx</p>
-                        <p v-if="phoneError" class="mt-1 text-xs text-red-600">
-                            {{ phoneError }}
-                        </p>
+                        <p v-if="phoneError" class="mt-1 text-xs text-red-600">{{ phoneError }}</p>
                     </div>
 
-                    <!-- Terms and Conditions -->
+                    <!-- Terms -->
                     <div class="flex items-start pt-2">
-                        <input type="checkbox" v-model="personalInfo.agree"
+                        <input type="checkbox" v-model="agree"
                             class="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
                         <label class="ml-2 text-sm text-gray-700">
                             Saya menyetujui
@@ -102,8 +108,7 @@
                         <span v-else class="flex items-center justify-center">
                             <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg"
                                 fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                    stroke-width="4"></circle>
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor"
                                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
                                 </path>
@@ -114,8 +119,7 @@
                 </div>
 
                 <div class="mt-6 text-center">
-                    <button @click="navigateTo('/register')"
-                        class="text-gray-600 hover:text-gray-800 text-sm transition">
+                    <button @click="navigateTo('/register')" class="text-gray-600 hover:text-gray-800 text-sm transition">
                         ← Kembali ke registrasi
                     </button>
                 </div>
@@ -125,129 +129,98 @@
 </template>
 
 <script setup>
-const personalInfo = ref({
-    firstName: '',
-    middleName: '',
-    lastName: '',
-    phone: '',
-    agree: false
-})
+import { ref, computed, watch, onMounted } from 'vue'
+
+// Separate ref untuk setiap field
+const accountType = ref('user')
+const firstName = ref('')
+const middleName = ref('')
+const lastName = ref('')
+const phone = ref('')
+const agree = ref(false)
 
 const loading = ref(false)
 const error = ref('')
 const success = ref('')
 const phoneError = ref('')
+const userId = ref(null)
 
-// Check if user is authenticated
 onMounted(() => {
-    const token = localStorage.getItem('auth-token')
-    if (!token) {
-        // Redirect to register if not authenticated
+    const id = localStorage.getItem('user-id')
+    if (!id) {
         navigateTo('/register')
+        return
     }
+    userId.value = id
+    console.log('✅ User ID:', id)
 })
 
-// Form validation
 const isFormValid = computed(() => {
-    return personalInfo.value.firstName &&
-        personalInfo.value.lastName &&
-        personalInfo.value.phone &&
-        personalInfo.value.agree &&
-        !phoneError.value
+    return accountType.value && firstName.value && lastName.value && phone.value && agree.value && !phoneError.value
 })
 
-// Phone validation
-watch(() => personalInfo.value.phone, (newPhone) => {
+watch(phone, (newPhone) => {
     if (!newPhone) {
         phoneError.value = ''
         return
     }
-
     const phoneRegex = /^08\d{8,11}$/
-    if (!phoneRegex.test(newPhone)) {
-        phoneError.value = 'Format nomor telepon tidak valid'
-    } else {
-        phoneError.value = ''
-    }
+    phoneError.value = phoneRegex.test(newPhone) ? '' : 'Format nomor telepon tidak valid'
 })
 
 const handleSubmit = async () => {
-    // Clear previous errors
     error.value = ''
+    
+    console.log('=== DEBUG START ===')
+    console.log('accountType value:', accountType.value)
+    console.log('accountType type:', typeof accountType.value)
+    console.log('=== DEBUG END ===')
 
-    // Validate required fields
-    if (!personalInfo.value.firstName) {
-        error.value = 'Nama depan harus diisi'
+    if (!accountType.value || !firstName.value || !lastName.value || !phone.value || !agree.value) {
+        error.value = 'Mohon lengkapi semua field yang wajib diisi'
         return
     }
 
-    if (!personalInfo.value.lastName) {
-        error.value = 'Nama belakang harus diisi'
+    if (phoneError.value) {
+        error.value = phoneError.value
         return
     }
 
-    if (!personalInfo.value.phone) {
-        error.value = 'Nomor telepon harus diisi'
-        return
-    }
-
-    // Validate phone format
-    const phoneRegex = /^08\d{8,11}$/
-    if (!phoneRegex.test(personalInfo.value.phone)) {
-        error.value = 'Format nomor telepon tidak valid. Gunakan format: 08xxxxxxxxxx'
-        return
-    }
-
-    if (!personalInfo.value.agree) {
-        error.value = 'Anda harus menyetujui syarat dan ketentuan'
+    if (!userId.value) {
+        error.value = 'User tidak ditemukan. Silakan login ulang.'
         return
     }
 
     loading.value = true
 
     try {
-        // Get existing user data from localStorage
-        const userData = localStorage.getItem('auth-user')
-        const user = userData ? JSON.parse(userData) : {}
-
-        // Update auth-user dengan data personal info
-        const updatedUser = {
-            ...user,
-            firstName: personalInfo.value.firstName,
-            middleName: personalInfo.value.middleName,
-            lastName: personalInfo.value.lastName,
-            phone: personalInfo.value.phone
+        const payload = {
+            user_id: userId.value,
+            account_type: accountType.value, // PASTI 'user' atau 'employer'
+            first_name: firstName.value,
+            middle_name: middleName.value || null,
+            last_name: lastName.value,
+            phone: phone.value
         }
 
-        // Save updated user to localStorage
-        localStorage.setItem('auth-user', JSON.stringify(updatedUser))
+        console.log('📤 Sending payload:', JSON.stringify(payload, null, 2))
 
-        // Save personal info to localStorage
-        localStorage.setItem('personal-info', JSON.stringify(personalInfo.value))
+        const response = await $fetch('/api/auth/update-profile', {
+            method: 'POST',
+            body: payload
+        })
 
-        // Optional: Send to backend API to update user profile
-        // const token = localStorage.getItem('auth-token')
-        // await $fetch('/api/user/update-profile', {
-        //     method: 'POST',
-        //     headers: {
-        //         'Authorization': `Bearer ${token}`
-        //     },
-        //     body: {
-        //         userId: user?.id,
-        //         ...personalInfo.value
-        //     }
-        // })
+        console.log('✅ Success:', response)
 
         success.value = 'Data berhasil disimpan!'
-
-        // Redirect to dashboard after short delay
+        
         setTimeout(() => {
             navigateTo('/dashboard')
-        }, 1000)
+        }, 1500)
 
     } catch (err) {
-        console.error('Error saving personal info:', err)
-        error.value = err.data?.message || 'Terjadi kesalahan. Silakan coba lagi.'
+        console.error('❌ Error:', err)
+        error.value = err.data?.message || err.message || 'Terjadi kesalahan'
     } finally {
         loading.value = false
     }

@@ -1,12 +1,20 @@
-import type { Database } from '../types/database.types'
-import { type User, type Session } from '@supabase/supabase-js'
-import { supabase } from '../../server/utils/supabaseClient'
+import { createClient } from '@supabase/supabase-js'
+import type { Database } from '~/types/database.types'
+import type { Session, User } from '@supabase/supabase-js'
 import { ref, onMounted } from 'vue'
+import { useRuntimeConfig } from '#app'
 
 type Tables = Database['public']['Tables']
 
 export const useSupabaseData = () => {
-  const client = supabase
+  const config = useRuntimeConfig()
+  
+  // ✅ Create client from runtime config
+  const client = createClient<Database>(
+    config.public.supabaseUrl as string,
+    config.public.supabaseKey as string
+  )
+  
   const user = ref<User | null>(null)
 
   // Get initial user
@@ -69,7 +77,6 @@ export const useSupabaseData = () => {
     if (!user.value?.id) return { success: false, error: 'User not authenticated' }
 
     try {
-      // Check if opportunity is already saved
       const { data: existingSave, error: checkError } = await client
         .from('saved_opportunities')
         .select()
@@ -143,12 +150,12 @@ export const useSupabaseData = () => {
 
   const updateGoal = async (goalId: string, updates: any) => {
     try {
-      const { data, error } = await (client
+      const { data, error } = await ((client as any)
         .from('goals')
-        .update(updates as any) as any)
+        .update(updates)
         .eq('id', goalId)
         .select()
-        .single()
+        .single())
 
       if (error) throw error
       return { success: true, data }
@@ -245,7 +252,6 @@ export const useSupabaseData = () => {
 
       if (error) throw error
 
-      // Update applications count
       const { data: opportunity } = await client
         .from('opportunities')
         .select('applications_count')
@@ -253,12 +259,13 @@ export const useSupabaseData = () => {
         .single()
 
       if (opportunity) {
-        await (client
+        await ((client as any)
           .from('opportunities')
           .update({
             applications_count: ((opportunity as any).applications_count || 0) + 1
-          } as any) as any)
+          })
           .eq('id', applicationData.opportunity_id)
+        )
       }
 
       return { success: true, data }
@@ -309,26 +316,17 @@ export const useSupabaseData = () => {
   }
 
   return {
-    // Opportunities
     user,
     fetchOpportunities,
     saveOpportunity,
-
-    // Goals
     fetchGoals,
     createGoal,
     updateGoal,
     deleteGoalById,
-
-    // Mentors
     fetchMentors,
     applyAsMentor,
-
-    // Applications
     fetchApplications,
     createApplication,
-
-    // User Preferences
     fetchUserPreferences,
     updateUserPreferences
   }

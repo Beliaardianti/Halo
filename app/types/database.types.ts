@@ -194,33 +194,35 @@ export interface Database {
         }
         Update: Partial<Database['public']['Tables']['user_preferences']['Insert']>
       }
-      user_profiles: {
-        Row: {
-          id: string
-          first_name?: string
-          last_name?: string
-          phone?: string
-          date_of_birth?: string
-          gender?: 'male' | 'female' | 'other'
-          avatar_url?: string
-          bio?: string
-          account_type: 'user' | 'mentor' | 'admin'
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id: string
-          first_name?: string
-          last_name?: string
-          phone?: string
-          date_of_birth?: string
-          gender?: 'male' | 'female' | 'other'
-          avatar_url?: string
-          bio?: string
-          account_type?: 'user' | 'mentor' | 'admin'
-        }
-        Update: Partial<Database['public']['Tables']['user_profiles']['Insert']>
-      }
+user_profiles: {
+  Row: {
+    id: string
+    first_name?: string
+    middle_name?: string  // ✅ Added
+    last_name?: string
+    phone?: string
+    date_of_birth?: string
+    gender?: 'male' | 'female' | 'other'
+    avatar_url?: string
+    bio?: string
+    account_type: 'user' | 'mentor' | 'admin'
+    created_at: string
+    updated_at: string
+  }
+  Insert: {
+    id: string
+    first_name?: string
+    middle_name?: string  // ✅ Added
+    last_name?: string
+    phone?: string
+    date_of_birth?: string
+    gender?: 'male' | 'female' | 'other'
+    avatar_url?: string
+    bio?: string
+    account_type?: 'user' | 'mentor' | 'admin'
+  }
+  Update: Partial<Database['public']['Tables']['user_profiles']['Insert']>
+}
     }
     Views: {}
     Functions: {}

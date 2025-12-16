@@ -1,4 +1,4 @@
-import { supabase } from '../utils/supabaseClient'
+import { createServerSupabaseClient } from '../utils/supabaseClient'
 import type { Database } from '~/types/database.types'
 
 export default defineEventHandler(async (event) => {
@@ -6,7 +6,7 @@ export default defineEventHandler(async (event) => {
   const { type, location, experience, search } = query
 
   try {
-    let dbQuery = supabase
+    let dbQuery = createServerSupabaseClient()
       .from('opportunities')
       .select('*')
       .eq('is_active', true)

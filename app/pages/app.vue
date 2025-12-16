@@ -5,14 +5,18 @@ import type { Ref, ComputedRef } from 'vue'
 import { ref, computed, onMounted } from 'vue'
 import { useAppStore } from '../composables/useAppStore'
 import { useSupabaseData } from '../composables/useSupabaseData'
+import { useSupabase } from '../composables/useSupabase'
 
-// ✅ Import store dan Supabase composable
+// ✅ Import Supabase
+const { supabase } = useSupabase()
 const appStore = useAppStore()
 const { user } = useSupabaseData()
 
 const currentView: Ref<string> = ref('dashboard')
 const userLocalData: Ref<any> = ref(null)
+const userProfile: Ref<any> = ref(null)
 const showGoalsModal: Ref<boolean> = ref(false)
+const loadingProfile: Ref<boolean> = ref(true)
 
 // ============================================
 // MODAL HANDLERS
@@ -29,7 +33,7 @@ const closeGoalsModal = (): void => {
 }
 
 // ============================================
-// NAVIGATION FUNCTIONS
+// NAVIGATION FUNCTIONS - SEKARANG MENGGUNAKAN navigateTo
 // ============================================
 
 const goToApplications = (): void => {
@@ -40,6 +44,32 @@ const goToApplications = (): void => {
 const goToSavedJobs = (): void => {
     console.log('💾 Navigating to saved jobs...')
     navigateTo('/opportunity?tab=saved-jobs')
+}
+
+// Tambahan navigasi untuk cards
+const goToMultiAI = (): void => {
+    console.log('🤖 Navigating to Multi AI...')
+    navigateTo('/multi-ai')
+}
+
+const goToOpportunity = (): void => {
+    console.log('💼 Navigating to Opportunity...')
+    navigateTo('/opportunity')
+}
+
+const goToProfile = (): void => {
+    console.log('👤 Navigating to Profile...')
+    navigateTo('/profile')
+}
+
+const goToInventory = (): void => {
+    console.log('📁 Navigating to Inventory...')
+    navigateTo('/inventory')
+}
+
+const goToDashboard = (): void => {
+    console.log('🏠 Navigating to Dashboard...')
+    navigateTo('/dashboard')
 }
 
 // ============================================
@@ -90,24 +120,14 @@ const completedGoalsCount = computed(() => {
 })
 
 // ============================================
-// USER PROFILE COMPUTED
+// USER PROFILE COMPUTED - dari Supabase
 // ============================================
 
-const userProfile = computed(() => ({
-    title: userLocalData.value?.title || user.value?.user_metadata?.title || '',
-    location: appStore.preferences.value?.location || userLocalData.value?.location || '',
-    phone: userLocalData.value?.phone || user.value?.user_metadata?.phone || '',
-    dateOfBirth: userLocalData.value?.dateOfBirth || '',
-    experienceCount: 0,
-    skillsCount: appStore.preferences.value?.skills?.length || 0
-}))
-
-// ✅ Get firstName and lastName from Supabase user
 const userInitial: ComputedRef<string> = computed(() => {
-    // Try from Supabase user metadata first
-    if (user.value?.user_metadata) {
-        const firstName = user.value.user_metadata.first_name || user.value.user_metadata.firstName || ''
-        const lastName = user.value.user_metadata.last_name || user.value.user_metadata.lastName || ''
+    // Try from database profile first
+    if (userProfile.value) {
+        const firstName = userProfile.value.first_name || ''
+        const lastName = userProfile.value.last_name || ''
 
         if (firstName && lastName) {
             return (firstName.charAt(0) + lastName.charAt(0)).toUpperCase()
@@ -117,10 +137,10 @@ const userInitial: ComputedRef<string> = computed(() => {
         }
     }
 
-    // Try from local user data
-    if (userLocalData.value) {
-        const firstName = userLocalData.value.firstName || ''
-        const lastName = userLocalData.value.lastName || ''
+    // Try from Supabase user metadata
+    if (user.value?.user_metadata) {
+        const firstName = user.value.user_metadata.first_name || user.value.user_metadata.firstName || ''
+        const lastName = user.value.user_metadata.last_name || user.value.user_metadata.lastName || ''
 
         if (firstName && lastName) {
             return (firstName.charAt(0) + lastName.charAt(0)).toUpperCase()
@@ -139,10 +159,10 @@ const userInitial: ComputedRef<string> = computed(() => {
 })
 
 const fullName = computed(() => {
-    // Try from Supabase user metadata first
-    if (user.value?.user_metadata) {
-        const firstName = user.value.user_metadata.first_name || user.value.user_metadata.firstName || ''
-        const lastName = user.value.user_metadata.last_name || user.value.user_metadata.lastName || ''
+    // Try from database profile first
+    if (userProfile.value) {
+        const firstName = userProfile.value.first_name || ''
+        const lastName = userProfile.value.last_name || ''
 
         if (firstName || lastName) {
             const parts = [firstName, lastName].filter(Boolean)
@@ -152,10 +172,10 @@ const fullName = computed(() => {
         }
     }
 
-    // Try from local user data
-    if (userLocalData.value) {
-        const firstName = userLocalData.value.firstName || ''
-        const lastName = userLocalData.value.lastName || ''
+    // Try from Supabase user metadata
+    if (user.value?.user_metadata) {
+        const firstName = user.value.user_metadata.first_name || user.value.user_metadata.firstName || ''
+        const lastName = user.value.user_metadata.last_name || user.value.user_metadata.lastName || ''
 
         if (firstName || lastName) {
             const parts = [firstName, lastName].filter(Boolean)
@@ -170,9 +190,21 @@ const fullName = computed(() => {
         return user.value.email.split('@')[0]
     }
 
-    // Always return default
     return 'User'
 })
+
+const userProfileDisplay = computed(() => ({
+    title: userProfile.value?.title || '',
+    location: userProfile.value?.city || appStore.preferences.value?.location || '',
+    phone: userProfile.value?.phone || user.value?.user_metadata?.phone || '',
+    dateOfBirth: userProfile.value?.date_of_birth || '',
+    gender: userProfile.value?.gender || '',
+    bio: userProfile.value?.bio || '',
+    avatar_url: userProfile.value?.avatar_url || '',
+    linkedin: userProfile.value?.linkedin || '',
+    portfolio: userProfile.value?.portfolio || '',
+    skillsCount: appStore.preferences.value?.skills?.length || 0
+}))
 
 const currentPageTitle: ComputedRef<string> = computed(() => {
     const titles: Record<string, string> = {
@@ -200,10 +232,44 @@ const currentPageSubtitle: ComputedRef<string> = computed(() => {
 // FUNCTIONS
 // ============================================
 
+const loadUserProfile = async (): Promise<void> => {
+    try {
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (!session?.user) {
+            console.error('❌ No session found')
+            return
+        }
+
+        // Load profile dari database
+        const { data: profile, error } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single()
+
+        if (error && error.code !== 'PGRST116') {
+            console.error('Error loading profile:', error)
+            return
+        }
+
+        if (profile) {
+            userProfile.value = profile
+            console.log('✅ Profile loaded from Supabase:', profile)
+        } else {
+            console.log('⚠️ No profile found in database')
+            userProfile.value = {}
+        }
+    } catch (err) {
+        console.error('Error in loadUserProfile:', err)
+    } finally {
+        loadingProfile.value = false
+    }
+}
+
 const loadUserData = (): void => {
     console.log('\n🔍 ===== LOADING USER DATA =====')
 
-    // Load from Supabase user (already loaded in composable)
     if (user.value) {
         console.log('✅ User from Supabase:', user.value)
 
@@ -236,17 +302,6 @@ const loadUserData = (): void => {
         }
     }
 
-    // Load applied opportunities from localStorage
-    const appliedStr = localStorage.getItem('applied-opportunities')
-    if (appliedStr) {
-        try {
-            const applied = JSON.parse(appliedStr)
-            console.log('✅ Applied opportunities loaded:', applied.length)
-        } catch (e) {
-            console.error('Error loading applied opportunities:', e)
-        }
-    }
-
     // Load goals from localStorage
     const goalsStr = localStorage.getItem('user-goals')
     if (goalsStr) {
@@ -263,7 +318,11 @@ const loadUserData = (): void => {
 }
 
 const editSection = (section: string): void => {
-    alert(`Editing ${section} section - navigate to edit page`)
+    if (section === 'personal') {
+        navigateTo('/settings')
+    } else {
+        alert(`Editing ${section} section - navigate to edit page`)
+    }
 }
 
 const handleLogout = (): void => {
@@ -273,21 +332,7 @@ const handleLogout = (): void => {
         localStorage.removeItem('user-goals')
 
         appStore.reset()
-        window.location.href = '/login'
-    }
-}
-
-const formatDate = (dateString: string): string => {
-    if (!dateString) return '-'
-    try {
-        const date = new Date(dateString)
-        return date.toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric'
-        })
-    } catch {
-        return dateString
+        navigateTo('/login')
     }
 }
 
@@ -295,7 +340,7 @@ const formatDate = (dateString: string): string => {
 // LIFECYCLE
 // ============================================
 
-onMounted(() => {
+onMounted(async () => {
     const token = localStorage.getItem('auth-token')
     if (!token) {
         window.location.href = '/login'
@@ -304,27 +349,25 @@ onMounted(() => {
 
     console.log('🚀 App.vue mounted!')
 
-    // Load data
+    // Load user data from Supabase
+    await loadUserProfile()
     loadUserData()
     appStore.loadFromLocalStorage()
 
-    // ✅ TAMBAH DELAY - tunggu user data siap
+    // Debug info
     setTimeout(() => {
         console.log('\n════════════════════════════════════')
         console.log('📊 FINAL APP STATE:')
         console.log('════════════════════════════════════')
-        console.log('👤 User object:', user.value)  // ← Tambah ini
-        console.log('👤 User email:', user.value?.email)
-        console.log('👤 User metadata:', user.value?.user_metadata)  // ← Tambah ini
-        console.log('👤 Local data:', userLocalData.value)  // ← Tambah ini
-        console.log('👤 First Name:', userLocalData.value?.firstName)
-        console.log('👤 Last Name:', userLocalData.value?.lastName)
+        console.log('👤 User:', user.value?.email)
+        console.log('👤 Profile from DB:', userProfile.value)
+        console.log('👤 Full Name:', fullName.value)
+        console.log('👤 Phone:', userProfileDisplay.value.phone)
         console.log('📱 Applications count:', applicationsCount.value)
         console.log('💾 Saved jobs count:', savedJobsCount.value)
         console.log('✅ Active goals count:', activeGoalsCount.value)
-        console.log('🎯 Completed goals count:', completedGoalsCount.value)
         console.log('════════════════════════════════════\n')
-    }, 1000)  // ← Ubah jadi 1000ms
+    }, 1500)
 })
 </script>
 
@@ -506,14 +549,10 @@ onMounted(() => {
 
                             <div class="flex-1 text-center sm:text-left">
                                 <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">{{ fullName }}</h2>
-                                <p class="text-base sm:text-lg text-gray-600 mb-1">{{ userProfile.title || 'No title set' }}</p>
-                                <p class="text-sm text-gray-500 flex items-center justify-center sm:justify-start gap-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                    </svg>
-                                    {{ userProfile.location || user?.email || 'Not set' }}
-                                </p>
+<p class="text-base sm:text-lg text-gray-600 mb-1">{{ userProfileDisplay.title || 'No title set' }}</p>
+<p class="text-sm text-gray-500 flex items-center justify-center sm:justify-start gap-2">
+    {{ userProfileDisplay.location || user?.email || 'Not set' }}
+</p>
                                 <button @click="editSection('personal')" class="mt-4 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg transition-all transform hover:scale-105">
                                     Edit Profile
                                 </button>
@@ -547,17 +586,17 @@ onMounted(() => {
 
                             <div v-if="user?.phone" class="flex items-center justify-between py-3 border-b border-gray-200">
                                 <span class="text-gray-600 text-sm font-medium">Phone Number</span>
-                                <span class="font-semibold text-gray-800">{{ user?.phone }}</span>
+                                <span class="font-semibold text-gray-800">{{ userProfileDisplay.phone || '-' }}</span>
                             </div>
 
                             <div class="flex items-center justify-between py-3 border-b border-gray-200">
                                 <span class="text-gray-600 text-sm font-medium">Email</span>
-                                <span class="font-semibold text-gray-800 text-sm">{{ user?.email || '-' }}</span>
+                                {{ userProfileDisplay.location || user?.email || 'Not set' }}
                             </div>
 
                             <div class="flex items-center justify-between py-3">
                                 <span class="text-gray-600 text-sm font-medium">Skills</span>
-                                <span class="font-semibold text-gray-800">{{ userProfile.skillsCount }} skills</span>
+                               <span class="font-semibold text-gray-800">{{ userProfileDisplay.skillsCount }} skills</span>
                             </div>
                         </div>
                     </div>

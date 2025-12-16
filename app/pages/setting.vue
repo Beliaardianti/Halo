@@ -54,7 +54,8 @@
                         </svg>
                         Biodata
                     </button>
-                    <button @click="activeTab = 'education'"
+
+                     <button @click="activeTab = 'education'"
                         :class="activeTab === 'education' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'"
                         class="py-3 px-4 rounded-lg font-medium transition whitespace-nowrap flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -114,15 +115,6 @@
                         <div class="text-center">
                             <p class="text-sm text-gray-600 mb-2">Format: JPG, PNG, atau GIF</p>
                             <p class="text-sm text-gray-600">Ukuran maksimal: 5MB</p>
-                        </div>
-
-                        <!-- Upload Progress -->
-                        <div v-if="uploadProgress > 0 && uploadProgress < 100" class="w-full max-w-md">
-                            <div class="bg-gray-200 rounded-full h-2 overflow-hidden">
-                                <div class="bg-blue-600 h-full transition-all duration-300"
-                                    :style="{ width: uploadProgress + '%' }"></div>
-                            </div>
-                            <p class="text-sm text-center mt-2 text-gray-600">Uploading... {{ uploadProgress }}%</p>
                         </div>
 
                         <!-- Save Button -->
@@ -370,6 +362,13 @@
                                 </button>
                             </div>
                         </div>
+                        <div v-if="edu.description" class="text-sm text-gray-600">
+                            {{ edu.description }}
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            {{ edu.startYear }} - {{ edu.isCurrent ? 'Sekarang' : edu.endYear }}
+                            <span v-if="edu.gpa" class="ml-2">• GPA: {{ edu.gpa }}</span>
+                        </div>
                     </div>
 
                     <button @click="saveEducation" :disabled="loadingEducation"
@@ -433,6 +432,13 @@
                                     Hapus
                                 </button>
                             </div>
+                        </div>
+                        <div v-if="exp.description" class="text-sm text-gray-600 whitespace-pre-line">
+                            {{ exp.description }}
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            {{ formatDate(exp.startDate) }} - {{ exp.isCurrent ? 'Sekarang' : formatDate(exp.endDate) }}
+                            <span v-if="exp.location" class="ml-2">• {{ exp.location }}</span>
                         </div>
                     </div>
 
@@ -510,8 +516,8 @@
                         </div>
 
                         <div class="md:col-span-2 flex items-center">
-                            <input v-model="currentEducation.isCurrent" type="checkbox" class="w-4 h-4 text-blue-600" />
-                            <label class="ml-2 text-sm text-gray-700">Masih bersekolah/kuliah disini</label>
+                            <input v-model="currentEducation.isCurrent" type="checkbox" id="currentEducation" class="w-4 h-4 text-blue-600" />
+                            <label for="currentEducation" class="ml-2 text-sm text-gray-700">Masih bersekolah/kuliah disini</label>
                         </div>
 
                         <div class="md:col-span-2">
@@ -597,8 +603,8 @@
                         </div>
 
                         <div class="md:col-span-2 flex items-center">
-                            <input v-model="currentExperience.isCurrent" type="checkbox" class="w-4 h-4 text-blue-600" />
-                            <label class="ml-2 text-sm text-gray-700">Saya masih bekerja disini</label>
+                            <input v-model="currentExperience.isCurrent" type="checkbox" id="currentExperience" class="w-4 h-4 text-blue-600" />
+                            <label for="currentExperience" class="ml-2 text-sm text-gray-700">Saya masih bekerja disini</label>
                         </div>
 
                         <div class="md:col-span-2">
@@ -622,14 +628,15 @@
                 </div>
             </div>
         </div>
-
-        <navbar/>
     </div>
 </template>
 
 <script setup>
+import { ref, computed, onMounted, watch } from 'vue'
+
 const { $supabase } = useNuxtApp()
 
+// State
 const activeTab = ref('photo')
 const error = ref('')
 const success = ref('')
@@ -637,172 +644,416 @@ const loadingAccount = ref(false)
 const loadingBiodata = ref(false)
 const loadingEducation = ref(false)
 const loadingExperience = ref(false)
-const uploadProgress = ref(0)
 const showPassword = ref(false)
+const userId = ref(null)
 
-// Photo Form
-const photoForm = ref({
-    photoUrl: ''
-})
-
-// Account Form
+// Forms
+const photoForm = ref({ photoUrl: '' })
 const accountForm = ref({
-    email: '',
-    firstName: '',
-    middleName: '',
-    lastName: '',
-    phone: '',
-    newPassword: '',
-    confirmPassword: ''
+  email: '',
+  firstName: '',
+  middleName: '',
+  lastName: '',
+  phone: '',
+  newPassword: '',
+  confirmPassword: ''
 })
-
-// Biodata Form
 const biodataForm = ref({
-    bio: '',
-    dateOfBirth: '',
-    gender: '',
-    height: null,
-    weight: null,
-    address: '',
-    city: '',
-    country: 'Indonesia',
-    linkedin: '',
-    portfolio: ''
+  bio: '',
+  dateOfBirth: '',
+  gender: '',
+  city: '',
+  country: '',
+  linkedin: '',
+  portfolio: ''
 })
 
+// EDUCATION STATE
 const educationList = ref([])
+const showEducationModal = ref(false)
+const editingEducationIndex = ref(null)
+const currentEducation = ref({
+  institution: '',
+  degree: '',
+  fieldOfStudy: '',
+  gpa: '',
+  startYear: '',
+  endYear: '',
+  isCurrent: false,
+  description: ''
+})
+
+// EXPERIENCE STATE
 const experienceList = ref([])
+const showExperienceModal = ref(false)
+const editingExperienceIndex = ref(null)
+const currentExperience = ref({
+  position: '',
+  company: '',
+  employmentType: '',
+  location: '',
+  startDate: '',
+  endDate: '',
+  isCurrent: false,
+  description: ''
+})
 
 const avatarInitials = computed(() => {
-    if (!accountForm.value) return '?'
-    const first = accountForm.value.firstName?.charAt(0) || ''
-    const last = accountForm.value.lastName?.charAt(0) || ''
-    return (first + last).toUpperCase() || '?'
+  const first = accountForm.value.firstName?.charAt(0) || ''
+  const last = accountForm.value.lastName?.charAt(0) || ''
+  return (first + last).toUpperCase() || '?'
+})
+
+// Helper functions
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  try {
+    const [year, month] = dateString.split('-')
+    const date = new Date(year, month - 1, 1)
+    return date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+  } catch (e) {
+    return dateString
+  }
+}
+
+const formatYearForInput = (year) => {
+  if (!year) return ''
+  return String(year).padStart(4, '0')
+}
+
+const formatDateForInput = (dateString) => {
+  if (!dateString) return ''
+  // Jika format sudah YYYY-MM, kembalikan langsung
+  if (dateString.match(/^\d{4}-\d{2}$/)) return dateString
+  
+  try {
+    // Jika format berbeda, konversi
+    const date = new Date(dateString + '-01')
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    return `${year}-${month}`
+  } catch (e) {
+    return dateString
+  }
+}
+
+// Watch for isCurrent changes
+watch(() => currentExperience.value.isCurrent, (newValue) => {
+  if (newValue) {
+    currentExperience.value.endDate = ''
+  }
+})
+
+watch(() => currentEducation.value.isCurrent, (newValue) => {
+  if (newValue) {
+    currentEducation.value.endYear = ''
+  }
+})
+
+// LOAD DATA
+onMounted(async () => {
+  try {
+    // Ambil user ID dari localStorage
+    const storedUserId = localStorage.getItem('user-id')
+    const userData = localStorage.getItem('auth-user')
+    
+    if (!storedUserId) {
+      error.value = 'User tidak ditemukan. Silakan login ulang.'
+      setTimeout(() => navigateTo('/login'), 2000)
+      return
+    }
+
+    userId.value = storedUserId
+    
+    // Set email dari localStorage
+    if (userData) {
+      try {
+        const parsed = JSON.parse(userData)
+        accountForm.value.email = parsed.email || ''
+      } catch (e) {
+        console.error('Error parsing user data:', e)
+      }
+    }
+
+    console.log('✅ Loading profile for user:', userId.value)
+
+    // Load profile dari database
+    const { data: profile, error: profileError } = await $supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', userId.value)
+      .single()
+
+    if (profileError && profileError.code !== 'PGRST116') {
+      console.error('Error loading profile:', profileError)
+      return
+    }
+
+    if (profile) {
+      console.log('✅ Profile loaded:', profile)
+      accountForm.value.firstName = profile.first_name || ''
+      accountForm.value.middleName = profile.middle_name || ''
+      accountForm.value.lastName = profile.last_name || ''
+      accountForm.value.phone = profile.phone || ''
+      biodataForm.value.bio = profile.bio || ''
+      biodataForm.value.dateOfBirth = profile.date_of_birth || ''
+      biodataForm.value.gender = profile.gender || ''
+      biodataForm.value.city = profile.city || ''
+      biodataForm.value.country = profile.country || ''
+      biodataForm.value.linkedin = profile.linkedin_url || ''
+      biodataForm.value.portfolio = profile.portfolio_url || ''
+      photoForm.value.photoUrl = profile.avatar_url || ''
+    }
+
+    // Load education
+    const { data: educations, error: eduError } = await $supabase
+      .from('educations')
+      .select('*')
+      .eq('user_id', userId.value)
+      .order('start_year', { ascending: false })
+
+    if (!eduError && educations) {
+      educationList.value = educations.map(edu => ({
+        institution: edu.institution,
+        degree: edu.degree,
+        fieldOfStudy: edu.field_of_study,
+        gpa: edu.gpa,
+        startYear: edu.start_year ? formatYearForInput(edu.start_year) : '',
+        endYear: edu.end_year ? formatYearForInput(edu.end_year) : '',
+        isCurrent: edu.is_current,
+        description: edu.description
+      }))
+    }
+
+    // Load experience
+    const { data: experiences, error: expError } = await $supabase
+      .from('experiences')
+      .select('*')
+      .eq('user_id', userId.value)
+      .order('start_date', { ascending: false })
+
+    if (!expError && experiences) {
+      experienceList.value = experiences.map(exp => ({
+        position: exp.position,
+        company: exp.company,
+        employmentType: exp.employment_type,
+        location: exp.location,
+        startDate: exp.start_date ? formatDateForInput(exp.start_date) : '',
+        endDate: exp.end_date ? formatDateForInput(exp.end_date) : '',
+        isCurrent: exp.is_current,
+        description: exp.description
+      }))
+    }
+
+  } catch (err) {
+    console.error('Error loading data:', err)
+    error.value = 'Gagal memuat data'
+  }
 })
 
 // PHOTO FUNCTIONS
 const handlePhotoUpload = async (event) => {
-    const file = event.target.files[0]
-    if (!file) return
+  const file = event.target.files[0]
+  if (!file) return
 
-    if (!file.type.startsWith('image/')) {
-        error.value = 'File harus berupa gambar'
-        return
-    }
+  if (!file.type.startsWith('image/')) {
+    error.value = 'File harus berupa gambar'
+    return
+  }
 
-    if (file.size > 5 * 1024 * 1024) {
-        error.value = 'Ukuran file maksimal 5MB'
-        return
-    }
+  if (file.size > 5 * 1024 * 1024) {
+    error.value = 'Ukuran file maksimal 5MB'
+    return
+  }
 
-    try {
-        uploadProgress.value = 10
-        const reader = new FileReader()
-        reader.onload = (e) => {
-            photoForm.value.photoUrl = e.target.result
-        }
-        reader.readAsDataURL(file)
-        uploadProgress.value = 50
-        uploadProgress.value = 100
-        setTimeout(() => { uploadProgress.value = 0 }, 2000)
-        success.value = 'Foto berhasil diupload! Jangan lupa klik Simpan.'
-    } catch (err) {
-        console.error('Upload error:', err)
-        error.value = 'Gagal upload foto'
-        uploadProgress.value = 0
-    }
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    photoForm.value.photoUrl = e.target.result
+  }
+  reader.readAsDataURL(file)
+  success.value = 'Foto berhasil diupload! Jangan lupa klik Simpan.'
 }
 
-const savePhoto = () => {
-    error.value = ''
-    localStorage.setItem('profile-photo', photoForm.value.photoUrl)
+const savePhoto = async () => {
+  if (!userId.value) {
+    error.value = 'User tidak ditemukan'
+    return
+  }
+
+  try {
+    const { error: updateError } = await $supabase
+      .from('user_profiles')
+      .update({ avatar_url: photoForm.value.photoUrl })
+      .eq('id', userId.value)
+
+    if (updateError) throw updateError
+
     success.value = 'Foto profil berhasil disimpan!'
     setTimeout(() => { success.value = '' }, 3000)
+  } catch (err) {
+    console.error('Save photo error:', err)
+    error.value = 'Gagal menyimpan foto'
+  }
 }
 
 // ACCOUNT FUNCTIONS
 const saveAccount = async () => {
-    error.value = ''
-    success.value = ''
+  error.value = ''
+  success.value = ''
 
-    if (!accountForm.value.firstName || !accountForm.value.lastName || !accountForm.value.phone) {
-        error.value = 'Nama dan nomor telepon wajib diisi'
-        return
+  if (!accountForm.value.firstName || !accountForm.value.lastName || !accountForm.value.phone) {
+    error.value = 'Nama dan nomor telepon wajib diisi'
+    return
+  }
+
+  if (!userId.value) {
+    error.value = 'User tidak ditemukan'
+    return
+  }
+
+  loadingAccount.value = true
+
+  try {
+    // Get session
+    const { data: { session } } = await $supabase.auth.getSession()
+    
+    const headers = {}
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`
     }
 
-    loadingAccount.value = true
+    // Call API
+    const response = await $fetch('/api/auth/update-profile', {
+      method: 'POST',
+      body: {
+        user_id: userId.value,
+        account_type: 'user',
+        first_name: accountForm.value.firstName,
+        middle_name: accountForm.value.middleName || null,
+        last_name: accountForm.value.lastName,
+        phone: accountForm.value.phone
+      },
+      headers
+    })
 
-    try {
-        localStorage.setItem('account-info', JSON.stringify(accountForm.value))
+    if (!response.success) {
+      error.value = response.message || 'Gagal menyimpan data'
+      loadingAccount.value = false
+      return
+    }
 
-        // Update auth-user juga
-        const userData = JSON.parse(localStorage.getItem('auth-user') || '{}')
-        userData.firstName = accountForm.value.firstName
-        userData.middleName = accountForm.value.middleName
-        userData.lastName = accountForm.value.lastName
-        userData.phone = accountForm.value.phone
-        localStorage.setItem('auth-user', JSON.stringify(userData))
-
-        if (accountForm.value.newPassword) {
-            if (accountForm.value.newPassword !== accountForm.value.confirmPassword) {
-                error.value = 'Password tidak cocok'
-                loadingAccount.value = false
-                return
-            }
-
-            const { error: pwError } = await $supabase.auth.updateUser({
-                password: accountForm.value.newPassword
-            })
-
-            if (pwError) throw pwError
-
-            accountForm.value.newPassword = ''
-            accountForm.value.confirmPassword = ''
-        }
-
-        success.value = 'Informasi akun berhasil disimpan!'
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-    } catch (err) {
-        console.error('Save account error:', err)
-        error.value = 'Gagal menyimpan data'
-    } finally {
+    // Update password jika diisi
+    if (accountForm.value.newPassword) {
+      if (accountForm.value.newPassword.length < 8) {
+        error.value = 'Password minimal 8 karakter'
         loadingAccount.value = false
+        return
+      }
+
+      if (accountForm.value.newPassword !== accountForm.value.confirmPassword) {
+        error.value = 'Password tidak cocok'
+        loadingAccount.value = false
+        return
+      }
+
+      const { error: pwError } = await $supabase.auth.updateUser({
+        password: accountForm.value.newPassword
+      })
+
+      if (pwError) throw pwError
+
+      accountForm.value.newPassword = ''
+      accountForm.value.confirmPassword = ''
     }
+
+    success.value = 'Informasi akun berhasil disimpan!'
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  } catch (err) {
+    console.error('Save account error:', err)
+    error.value = err.data?.message || err.message || 'Gagal menyimpan data'
+  } finally {
+    loadingAccount.value = false
+  }
 }
 
 // BIODATA FUNCTIONS
-const saveBiodata = () => {
-    error.value = ''
-    success.value = ''
+const saveBiodata = async () => {
+  error.value = ''
+  success.value = ''
 
-    if (!biodataForm.value.bio || !biodataForm.value.city || !biodataForm.value.country) {
-        error.value = 'Bio, kota, dan negara wajib diisi'
-        return
-    }
+  if (!biodataForm.value.bio) {
+    error.value = 'Bio wajib diisi'
+    return
+  }
 
-    loadingBiodata.value = true
+  if (!userId.value) {
+    error.value = 'User tidak ditemukan'
+    return
+  }
 
-    setTimeout(() => {
-        localStorage.setItem('biodata-info', JSON.stringify(biodataForm.value))
+  loadingBiodata.value = true
 
-        // Update auth-user dengan nama dari account form
-        const userData = JSON.parse(localStorage.getItem('auth-user') || '{}')
-        userData.firstName = accountForm.value.firstName
-        userData.middleName = accountForm.value.middleName
-        userData.lastName = accountForm.value.lastName
-        userData.phone = accountForm.value.phone
-        localStorage.setItem('auth-user', JSON.stringify(userData))
+  try {
+    const { error: updateError } = await $supabase
+      .from('user_profiles')
+      .update({
+        bio: biodataForm.value.bio,
+        date_of_birth: biodataForm.value.dateOfBirth || null,
+        gender: biodataForm.value.gender || null,
+        city: biodataForm.value.city || null,
+        country: biodataForm.value.country || null,
+        linkedin_url: biodataForm.value.linkedin || null,
+        portfolio_url: biodataForm.value.portfolio || null
+      })
+      .eq('id', userId.value)
 
-        success.value = 'Biodata berhasil disimpan!'
-        loadingBiodata.value = false
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-    }, 1000)
+    if (updateError) throw updateError
+
+    success.value = 'Biodata berhasil disimpan!'
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  } catch (err) {
+    console.error('Save biodata error:', err)
+    error.value = err.message || 'Gagal menyimpan biodata'
+  } finally {
+    loadingBiodata.value = false
+  }
 }
 
-// EDUCATION MODAL
-const showEducationModal = ref(false)
-const editingEducationIndex = ref(null)
-const currentEducation = ref({
+// EDUCATION FUNCTIONS
+const openEducationModal = (index = null) => {
+  console.log('Opening education modal, index:', index)
+  if (index !== null && index >= 0 && index < educationList.value.length) {
+    // Edit mode
+    const education = educationList.value[index]
+    currentEducation.value = {
+      ...education,
+      startYear: education.startYear ? String(education.startYear) : '',
+      endYear: education.endYear ? String(education.endYear) : '',
+      isCurrent: education.isCurrent || false
+    }
+    editingEducationIndex.value = index
+  } else {
+    // Add mode
+    currentEducation.value = {
+      institution: '',
+      degree: '',
+      fieldOfStudy: '',
+      gpa: '',
+      startYear: '',
+      endYear: '',
+      isCurrent: false,
+      description: ''
+    }
+    editingEducationIndex.value = null
+  }
+  showEducationModal.value = true
+  error.value = ''
+}
+
+const closeEducationModal = () => {
+  showEducationModal.value = false
+  editingEducationIndex.value = null
+  currentEducation.value = {
     institution: '',
     degree: '',
     fieldOfStudy: '',
@@ -811,10 +1062,167 @@ const currentEducation = ref({
     endYear: '',
     isCurrent: false,
     description: ''
-})
-const showExperienceModal = ref(false)
-const editingExperienceIndex = ref(null)
-const currentExperience = ref({
+  }
+  error.value = ''
+}
+
+const saveEducationItem = () => {
+  console.log('Saving education item:', currentEducation.value)
+  error.value = ''
+  success.value = ''
+
+  // Validasi
+  if (!currentEducation.value.institution?.trim()) {
+    error.value = 'Institusi wajib diisi'
+    return
+  }
+  
+  if (!currentEducation.value.degree) {
+    error.value = 'Jenjang pendidikan wajib diisi'
+    return
+  }
+  
+  if (!currentEducation.value.fieldOfStudy?.trim()) {
+    error.value = 'Jurusan wajib diisi'
+    return
+  }
+  
+  if (!currentEducation.value.startYear) {
+    error.value = 'Tahun mulai wajib diisi'
+    return
+  }
+
+  // Jika masih kuliah, set endYear ke null
+  const educationToSave = {
+    institution: currentEducation.value.institution.trim(),
+    degree: currentEducation.value.degree,
+    fieldOfStudy: currentEducation.value.fieldOfStudy.trim(),
+    gpa: currentEducation.value.gpa?.trim() || '',
+    startYear: currentEducation.value.startYear,
+    endYear: currentEducation.value.isCurrent ? null : (currentEducation.value.endYear?.trim() || ''),
+    isCurrent: currentEducation.value.isCurrent,
+    description: currentEducation.value.description?.trim() || ''
+  }
+
+  console.log('Education to save:', educationToSave)
+
+  if (editingEducationIndex.value !== null) {
+    // Update existing
+    educationList.value[editingEducationIndex.value] = educationToSave
+    success.value = 'Pendidikan berhasil diperbarui!'
+  } else {
+    // Add new
+    educationList.value.push(educationToSave)
+    success.value = 'Pendidikan berhasil ditambahkan!'
+  }
+
+  closeEducationModal()
+}
+
+const editEducation = (index) => {
+  openEducationModal(index)
+}
+
+const removeEducation = (index) => {
+  if (confirm('Apakah Anda yakin ingin menghapus pendidikan ini?')) {
+    educationList.value.splice(index, 1)
+    success.value = 'Pendidikan berhasil dihapus!'
+  }
+}
+
+const saveEducation = async () => {
+  if (!userId.value) {
+    error.value = 'User tidak ditemukan'
+    return
+  }
+
+  loadingEducation.value = true
+  error.value = ''
+  success.value = ''
+
+  try {
+    // Hapus pendidikan lama jika ada
+    const { error: deleteError } = await $supabase
+      .from('educations')
+      .delete()
+      .eq('user_id', userId.value)
+
+    if (deleteError) {
+      console.error('Delete error:', deleteError)
+      throw deleteError
+    }
+
+    // Simpan pendidikan baru
+    const educationData = educationList.value.map(edu => ({
+      user_id: userId.value,
+      institution: edu.institution,
+      degree: edu.degree,
+      field_of_study: edu.fieldOfStudy,
+      gpa: edu.gpa || null,
+      start_year: edu.startYear,
+      end_year: edu.endYear || null,
+      is_current: edu.isCurrent || false,
+      description: edu.description || null
+    }))
+
+    console.log('Saving education data:', educationData)
+
+    if (educationData.length > 0) {
+      const { error: saveError } = await $supabase
+        .from('educations')
+        .insert(educationData)
+
+      if (saveError) {
+        console.error('Save error:', saveError)
+        throw saveError
+      }
+    }
+
+    success.value = 'Pendidikan berhasil disimpan!'
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  } catch (err) {
+    console.error('Save education error:', err)
+    error.value = 'Gagal menyimpan pendidikan: ' + err.message
+  } finally {
+    loadingEducation.value = false
+  }
+}
+
+// EXPERIENCE FUNCTIONS
+const openExperienceModal = (index = null) => {
+  console.log('Opening experience modal, index:', index)
+  if (index !== null && index >= 0 && index < experienceList.value.length) {
+    // Edit mode
+    const experience = experienceList.value[index]
+    currentExperience.value = {
+      ...experience,
+      startDate: experience.startDate ? formatDateForInput(experience.startDate) : '',
+      endDate: experience.endDate ? formatDateForInput(experience.endDate) : '',
+      isCurrent: experience.isCurrent || false
+    }
+    editingExperienceIndex.value = index
+  } else {
+    // Add mode
+    currentExperience.value = {
+      position: '',
+      company: '',
+      employmentType: '',
+      location: '',
+      startDate: '',
+      endDate: '',
+      isCurrent: false,
+      description: ''
+    }
+    editingExperienceIndex.value = null
+  }
+  showExperienceModal.value = true
+  error.value = ''
+}
+
+const closeExperienceModal = () => {
+  showExperienceModal.value = false
+  editingExperienceIndex.value = null
+  currentExperience.value = {
     position: '',
     company: '',
     employmentType: '',
@@ -823,200 +1231,142 @@ const currentExperience = ref({
     endDate: '',
     isCurrent: false,
     description: ''
-})
-
-const openEducationModal = () => {
-    editingEducationIndex.value = null
-    currentEducation.value = {
-        institution: '',
-        degree: '',
-        fieldOfStudy: '',
-        gpa: '',
-        startYear: '',
-        endYear: '',
-        isCurrent: false,
-        description: ''
-    }
-    showEducationModal.value = true
-}
-
-const closeEducationModal = () => {
-    showEducationModal.value = false
-}
-
-const editEducation = (index) => {
-    editingEducationIndex.value = index
-    currentEducation.value = JSON.parse(JSON.stringify(educationList.value[index]))
-    showEducationModal.value = true
-}
-
-const saveEducationItem = () => {
-    error.value = ''
-
-    if (!currentEducation.value.institution || !currentEducation.value.degree || !currentEducation.value.fieldOfStudy || !currentEducation.value.startYear) {
-        error.value = 'Institusi, jenjang, jurusan, dan tahun mulai wajib diisi'
-        return
-    }
-
-    if (editingEducationIndex.value !== null) {
-        educationList.value[editingEducationIndex.value] = JSON.parse(JSON.stringify(currentEducation.value))
-        success.value = 'Pendidikan berhasil diperbarui!'
-    } else {
-        educationList.value.push(JSON.parse(JSON.stringify(currentEducation.value)))
-        success.value = 'Pendidikan berhasil ditambahkan!'
-    }
-
-    setTimeout(() => {
-        success.value = ''
-    }, 3000)
-
-    closeEducationModal()
-}
-
-const removeEducation = (index) => {
-    if (confirm('Hapus pendidikan ini?')) {
-        educationList.value.splice(index, 1)
-        success.value = 'Pendidikan berhasil dihapus'
-        setTimeout(() => { success.value = '' }, 3000)
-    }
-}
-
-const saveEducation = () => {
-    error.value = ''
-    success.value = ''
-    loadingEducation.value = true
-
-    setTimeout(() => {
-        localStorage.setItem('education-list', JSON.stringify(educationList.value))
-        success.value = 'Riwayat pendidikan berhasil disimpan!'
-        loadingEducation.value = false
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-    }, 1000)
-}
-
-const openExperienceModal = () => {
-    editingExperienceIndex.value = null
-    currentExperience.value = {
-        position: '',
-        company: '',
-        employmentType: '',
-        location: '',
-        startDate: '',
-        endDate: '',
-        isCurrent: false,
-        description: ''
-    }
-    showExperienceModal.value = true
-}
-
-const closeExperienceModal = () => {
-    showExperienceModal.value = false
-}
-
-const editExperience = (index) => {
-    editingExperienceIndex.value = index
-    currentExperience.value = JSON.parse(JSON.stringify(experienceList.value[index]))
-    showExperienceModal.value = true
+  }
+  error.value = ''
 }
 
 const saveExperienceItem = () => {
-    error.value = ''
+  console.log('Saving experience item:', currentExperience.value)
+  error.value = ''
+  success.value = ''
 
-    if (!currentExperience.value.position || !currentExperience.value.company || !currentExperience.value.startDate || !currentExperience.value.description) {
-        error.value = 'Posisi, perusahaan, tanggal mulai, dan deskripsi wajib diisi'
-        return
-    }
+  // Validasi
+  if (!currentExperience.value.position?.trim()) {
+    error.value = 'Posisi wajib diisi'
+    return
+  }
+  
+  if (!currentExperience.value.company?.trim()) {
+    error.value = 'Perusahaan wajib diisi'
+    return
+  }
+  
+  if (!currentExperience.value.startDate) {
+    error.value = 'Tanggal mulai wajib diisi'
+    return
+  }
+  
+  if (!currentExperience.value.description?.trim()) {
+    error.value = 'Deskripsi pekerjaan wajib diisi'
+    return
+  }
 
-    if (editingExperienceIndex.value !== null) {
-        experienceList.value[editingExperienceIndex.value] = JSON.parse(JSON.stringify(currentExperience.value))
-        success.value = 'Pengalaman berhasil diperbarui!'
-    } else {
-        experienceList.value.push(JSON.parse(JSON.stringify(currentExperience.value)))
-        success.value = 'Pengalaman berhasil ditambahkan!'
-    }
+  // Jika masih bekerja, set endDate ke null
+  const experienceToSave = {
+    position: currentExperience.value.position.trim(),
+    company: currentExperience.value.company.trim(),
+    employmentType: currentExperience.value.employmentType || '',
+    location: currentExperience.value.location?.trim() || '',
+    startDate: currentExperience.value.startDate,
+    endDate: currentExperience.value.isCurrent ? null : (currentExperience.value.endDate?.trim() || ''),
+    isCurrent: currentExperience.value.isCurrent,
+    description: currentExperience.value.description.trim()
+  }
 
-    setTimeout(() => {
-        success.value = ''
-    }, 3000)
+  console.log('Experience to save:', experienceToSave)
 
-    closeExperienceModal()
+  if (editingExperienceIndex.value !== null) {
+    // Update existing
+    experienceList.value[editingExperienceIndex.value] = experienceToSave
+    success.value = 'Pengalaman berhasil diperbarui!'
+  } else {
+    // Add new
+    experienceList.value.push(experienceToSave)
+    success.value = 'Pengalaman berhasil ditambahkan!'
+  }
+
+  closeExperienceModal()
+}
+
+const editExperience = (index) => {
+  openExperienceModal(index)
 }
 
 const removeExperience = (index) => {
-    if (confirm('Hapus pengalaman ini?')) {
-        experienceList.value.splice(index, 1)
-        success.value = 'Pengalaman berhasil dihapus'
-        setTimeout(() => { success.value = '' }, 3000)
-    }
+  if (confirm('Apakah Anda yakin ingin menghapus pengalaman ini?')) {
+    experienceList.value.splice(index, 1)
+    success.value = 'Pengalaman berhasil dihapus!'
+  }
 }
 
-const saveExperience = () => {
-    error.value = ''
-    success.value = ''
-    loadingExperience.value = true
+const saveExperience = async () => {
+  if (!userId.value) {
+    error.value = 'User tidak ditemukan'
+    return
+  }
 
-    setTimeout(() => {
-        localStorage.setItem('experience-list', JSON.stringify(experienceList.value))
-        success.value = 'Pengalaman kerja berhasil disimpan!'
-        loadingExperience.value = false
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-    }, 1000)
+  loadingExperience.value = true
+  error.value = ''
+  success.value = ''
+
+  try {
+    // Hapus pengalaman lama jika ada
+    const { error: deleteError } = await $supabase
+      .from('experiences')
+      .delete()
+      .eq('user_id', userId.value)
+
+    if (deleteError) {
+      console.error('Delete error:', deleteError)
+      throw deleteError
+    }
+
+    // Simpan pengalaman baru
+    const experienceData = experienceList.value.map(exp => ({
+      user_id: userId.value,
+      position: exp.position,
+      company: exp.company,
+      employment_type: exp.employmentType || null,
+      location: exp.location || null,
+      start_date: exp.startDate,
+      end_date: exp.endDate || null,
+      is_current: exp.isCurrent || false,
+      description: exp.description
+    }))
+
+    console.log('Saving experience data:', experienceData)
+
+    if (experienceData.length > 0) {
+      const { error: saveError } = await $supabase
+        .from('experiences')
+        .insert(experienceData)
+
+      if (saveError) {
+        console.error('Save error:', saveError)
+        throw saveError
+      }
+    }
+
+    success.value = 'Pengalaman berhasil disimpan!'
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  } catch (err) {
+    console.error('Save experience error:', err)
+    error.value = 'Gagal menyimpan pengalaman: ' + err.message
+  } finally {
+    loadingExperience.value = false
+  }
 }
-
-onMounted(() => {
-    const token = localStorage.getItem('auth-token')
-    if (!token) {
-        navigateTo('/login')
-        return
-    }
-
-    try {
-        // Load user data (from register)
-        const userData = localStorage.getItem('auth-user')
-        if (userData) {
-            const user = JSON.parse(userData)
-            accountForm.value.email = user.email || ''
-            accountForm.value.firstName = user.firstName || ''
-            accountForm.value.middleName = user.middleName || ''
-            accountForm.value.lastName = user.lastName || ''
-            accountForm.value.phone = user.phone || ''
-        }
-
-        // Load account info (if already edited)
-        const accountInfo = localStorage.getItem('account-info')
-        if (accountInfo) {
-            const saved = JSON.parse(accountInfo)
-            accountForm.value.firstName = saved.firstName || accountForm.value.firstName
-            accountForm.value.middleName = saved.middleName || accountForm.value.middleName
-            accountForm.value.lastName = saved.lastName || accountForm.value.lastName
-            accountForm.value.phone = saved.phone || accountForm.value.phone
-        }
-
-        // Load biodata
-        const biodataInfo = localStorage.getItem('biodata-info')
-        if (biodataInfo) {
-            Object.assign(biodataForm.value, JSON.parse(biodataInfo))
-        }
-
-        // Load education
-        const educationData = localStorage.getItem('education-list')
-        if (educationData) {
-            educationList.value = JSON.parse(educationData)
-        }
-
-        // Load experience
-        const experienceData = localStorage.getItem('experience-list')
-        if (experienceData) {
-            experienceList.value = JSON.parse(experienceData)
-        }
-
-        // Load profile photo
-        const profilePhoto = localStorage.getItem('profile-photo')
-        if (profilePhoto) {
-            photoForm.value.photoUrl = profilePhoto
-        }
-    } catch (err) {
-        console.error('Error loading data:', err)
-    }
-})
 </script>
+
+<style scoped>
+/* Custom styles */
+input[type="month"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: auto;
+  margin: 0;
+}
+</style>

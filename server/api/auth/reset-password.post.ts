@@ -1,4 +1,4 @@
-import { supabase } from '../../utils/supabaseClient'
+import { createServerSupabaseClient } from '../../utils/supabaseClient'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Update password
-    const { data, error } = await supabase.auth.updateUser({
+    const { data, error } = await createServerSupabaseClient().auth.updateUser({
       password: password
     })
 

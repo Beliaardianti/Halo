@@ -1,4 +1,4 @@
-import { supabase } from '../utils/supabaseClient'
+import { createServerSupabaseClient } from '../utils/supabaseClient'
 
 
 export default defineEventHandler(async (event) => {
@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
       const query = getQuery(event)
       const { expertise } = query
 
-      let dbQuery = supabase
+      let dbQuery = createServerSupabaseClient()
         .from('mentors')
         .select('*')
         .eq('is_approved', true)
@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
       }
 
       // Cek apakah user sudah pernah apply
-      const { data: existing } = await supabase
+      const { data: existing } = await createServerSupabaseClient()
         .from('mentors')
         .select('id')
         .eq('user_id', user_id)
@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
       }
 
       // Insert data baru
-      const { data, error } = await supabase
+      const { data, error } = await createServerSupabaseClient()
         .from('mentors')
         .insert({
           user_id,

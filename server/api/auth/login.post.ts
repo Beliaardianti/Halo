@@ -1,5 +1,5 @@
 import { H3Event } from 'h3'
-import { supabase } from '../../utils/supabaseClient'
+import { createServerSupabaseClient } from '../../utils/supabaseClient'
 
 export default defineEventHandler(async (event: H3Event) => {
   const body = await readBody(event)
@@ -13,7 +13,7 @@ export default defineEventHandler(async (event: H3Event) => {
   }
 
   // Login melalui Supabase Auth
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await createServerSupabaseClient().auth.signInWithPassword({
     email,
     password
   })

@@ -1,5 +1,5 @@
 import { createXenditInvoice } from '../../utils/xenditClient'
-import { supabase } from '../../utils/supabaseClient'
+import { createServerSupabaseClient } from '../utils/supabaseClient'
 
 export default defineEventHandler(async (event) => {
   try {

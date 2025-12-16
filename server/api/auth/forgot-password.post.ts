@@ -1,5 +1,5 @@
 
-import { supabase } from '../../utils/supabaseClient'
+import { createServerSupabaseClient } from '../../utils/supabaseClient'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Kirim email reset password
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await createServerSupabaseClient().auth.resetPasswordForEmail(email, {
       redirectTo: `${process.env.APP_URL || 'http://localhost:3000'}/reset-password`
     })
 

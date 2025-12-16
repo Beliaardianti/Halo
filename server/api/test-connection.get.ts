@@ -1,10 +1,10 @@
-import { supabase } from '../utils/supabaseClient'
+import { createServerSupabaseClient } from '../utils/supabaseClient'
 
 
 export default defineEventHandler(async () => {
   try {
-    // Ambil data dari tabel 'opportunities'
-    const { data, error } = await supabase
+    // Ambil data dari tabel 'goals'
+    const { data, error } = await createServerSupabaseClient()
       .from('goals')
       .select('*')
       .eq('is_active', true)

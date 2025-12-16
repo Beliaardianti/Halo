@@ -286,7 +286,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { supabase } from '../../server/utils/supabaseClient'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  useRuntimeConfig().public.supabaseUrl,
+  useRuntimeConfig().public.supabaseKey
+)
 
 
 

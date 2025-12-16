@@ -1,4 +1,4 @@
-import { supabase } from '../utils/supabaseClient'
+import { createServerSupabaseClient } from '../utils/supabaseClient'
 
 export default defineEventHandler(async (event) => {
   const method = event.method
@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await createServerSupabaseClient()
         .from('applications')
         .select(`
           *,
@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
       }
 
       // Check if already applied
-      const { data: existing } = await supabase
+      const { data: existing } = await createServerSupabaseClient()
         .from('applications')
         .select('id')
         .eq('user_id', user_id)
@@ -68,21 +68,21 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      // Insert application
-      const { data, error } = await supabase
-        .from('applications')
-        .insert({
-          user_id,
-          opportunity_id: opportunityId,
-          status: 'pending',
-          cover_letter: coverLetter || null,
-          resume_url: resumeUrl || null
-        })
-        .select(`
-          *,
-          opportunity:opportunities(*)
-        `)
-        .single()
+     // Insert application
+const { data, error } = await createServerSupabaseClient()
+  .from('applications')
+  .insert({
+    user_id,
+    opportunity_id: opportunityId,
+    status: 'pending',
+    cover_letter: coverLetter || null,
+    resume_url: resumeUrl || null
+  } as any) // Type assertion to bypass the error
+  .select(`
+    *,
+    opportunity:opportunities(*)
+  `)
+  .single()
 
       if (error) throw error
 

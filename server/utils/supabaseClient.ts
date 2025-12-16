@@ -1,20 +1,23 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '~/types/database.types'
 
-const supabaseUrl = 'https://txznvfrytsxeclwwgtgk.supabase.co'
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4em52ZnJ5dHN4ZWNsd3dndGdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3NDU2MjEsImV4cCI6MjA3ODMyMTYyMX0.OuNpoiDeoOxjNl84SAFxor5UkXmcxJpOJdoTwn1uSdE'
+export const createServerSupabaseClient = () => {
+  const supabaseUrl = process.env.SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_ANON_KEY
 
-// Create Supabase client
-export const supabase = createClient<Database>(supabaseUrl, supabaseKey)
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('DEBUG: Env vars:', {
+      url: process.env.SUPABASE_URL,
+      key: !!process.env.SUPABASE_ANON_KEY
+    })
+    throw new Error(`Missing Supabase config: url=${!!supabaseUrl}, key=${!!supabaseServiceKey}`)
+  }
 
-export const getCurrentUser = async () => {
-  const { data: { user }, error } = await supabase.auth.getUser()
-  return { user, error }
-}
-
-// Subscribe ke auth changes
-export const onAuthChange = (callback: (user: any) => void) => {
-  return supabase.auth.onAuthStateChange((_event, session) => {
-    callback(session?.user || null)
+  return createClient<Database>(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
   })
 }

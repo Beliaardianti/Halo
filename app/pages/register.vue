@@ -227,9 +227,14 @@ const handleRegister = async () => {
         })
 
         if (response.success) {
-            // Simpan data ke localStorage
+            // ✅ Simpan data ke localStorage
             localStorage.setItem('auth-token', response.data.token)
             localStorage.setItem('auth-user', JSON.stringify(response.data.user))
+            
+            // ✅ TAMBAH BARIS INI - Simpan user ID
+            localStorage.setItem('user-id', response.data.user.id)
+
+            console.log('✅ User registered:', response.data.user.id)
 
             success.value = 'Registrasi berhasil!'
 
