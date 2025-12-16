@@ -1,13 +1,18 @@
+import { defineEventHandler, readBody, createError } from 'h3'
+import { createClient } from '@supabase/supabase-js'
+
 export default defineEventHandler(async (event) => {
   try {
-    const { createClient } = await import('@supabase/supabase-js')
+    // ✅ Get config
     const config = useRuntimeConfig()
 
+    // ✅ Create Supabase client
     const supabase = createClient(
-      config.public.supabaseUrl,
-      config.public.supabaseKey
+      config.public.supabaseUrl as string,
+      config.public.supabaseKey as string
     )
 
+    // ✅ Read body
     const body = await readBody(event)
     const {
       email,
@@ -18,41 +23,58 @@ export default defineEventHandler(async (event) => {
       lastName
     } = body
 
-    // ✅ Step 1: Sign up user
+    // ✅ Validate
+    if (!email || !password) {
+      return { 
+        success: false, 
+        message: 'Email dan password harus diisi' 
+      }
+    }
+
+    console.log('📝 Register request:', { email, accountType })
+
+    // ✅ Sign up user
     const { data, error } = await supabase.auth.signUp({
       email,
       password
     })
 
     if (error) {
+      console.error('Auth error:', error.message)
       return { success: false, message: error.message }
     }
 
-    // 🔐 User bisa null jika email confirmation ON
+    // Check if user created
     if (!data.user) {
       return {
-        success: true,
-        message: 'Registrasi berhasil, silakan cek email untuk verifikasi'
+        success: false,
+        message: 'User tidak berhasil dibuat'
       }
     }
 
-  
+    console.log('✅ User created:', data.user.id)
+
+    // ✅ Create profile
     const { error: profileError } = await supabase
       .from('user_profiles')
       .insert({
-        id: data.user.id, // Pakai user_id sebagai id di table
-        first_name: firstName,
-        last_name: lastName,
-        account_type: accountType,
+        id: data.user.id,
+        first_name: firstName || '',
+        middle_name: middleName || null,
+        last_name: lastName || '',
+        account_type: accountType || 'user',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
 
     if (profileError) {
-      console.error('Profile save error:', profileError)
-      // Jangan return error, user auth sudah berhasil
+      console.error('❌ Profile error:', profileError)
+      // Don't fail - user auth already succeeded
+    } else {
+      console.log('✅ Profile created')
     }
 
+    // ✅ Return success
     return {
       success: true,
       message: 'Registrasi berhasil',
@@ -67,10 +89,14 @@ export default defineEventHandler(async (event) => {
         }
       }
     }
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Terjadi kesalahan server'
 
-    return { success: false, message }
+  } catch (err) {
+    console.error('❌ Register error:', err)
+    const message = err instanceof Error ? err.message : 'Terjadi kesalahan server'
+
+    return { 
+      success: false, 
+      message 
+    }
   }
 })
